@@ -5,10 +5,12 @@
 //  Created by Rodrigo on 10-08-24.
 //
 
+import SwiftData
 import SwiftUI
 
 struct ContentView: View {
-    @State private var users = [User]()
+    @Environment(\.modelContext) var modelContext
+    @Query(sort:[SortDescriptor(\User.name)]) var users: [User]
     
     var body: some View {
         NavigationStack {
@@ -33,6 +35,18 @@ struct ContentView: View {
             .task {
                 await loadUsers()
             }
+            .toolbar {
+                ToolbarItem() {
+                    Button("Delete all", systemImage: "trash") {
+                        do {
+                            try modelContext.delete(model: User.self)
+                        } catch {
+                            print("Failed to delete users")
+                        }
+                        
+                    }
+                }
+            }
         }
     }
     
@@ -54,7 +68,10 @@ struct ContentView: View {
             let(data, _) = try await URLSession.shared.data(from: url)
             
             if let decodedResponse = try? decoder.decode([User].self, from: data) {
-                users = decodedResponse
+                for user in decodedResponse {
+                    print(user)
+                    modelContext.insert(user)
+                }
             }
             
         } catch {
@@ -66,5 +83,19 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    do {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: User.self, configurations: config)
+        
+        let user1 = User(id: UUID(uuidString: "50a48fa3-2c0f-4397-ac50-64da464f9954")!, isActive: false, name: "Alford Rodriguez", age: 21, company: "Imkan", email: "alfordrodriguez@imkan.com", address: "907 Nelson Street, Cotopaxi, South Dakota, 5913", about: "Occaecat consequat elit aliquip magna", registered: Date.now, tags: [
+            "cillum",
+            "consequat",
+            "deserunt"], friends:[Friend(id: UUID(uuidString: "91b5be3d-9a19-4ac2-b2ce-89cc41884ed0")!, name: "Hawkins Patel")])
+        
+        return ContentView()
+            .modelContainer(container)
+        
+    } catch {
+        return Text("Failed to create preview \(error.localizedDescription)")
+    }
 }
